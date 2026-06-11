@@ -4,7 +4,7 @@ import Calendar from '../components/Calendar.astro';
 import Briefing from '../components/Briefing.astro';
 import BriefingNav from '../components/BriefingNav.astro';
 import type { Briefing as BriefingType } from '../lib/briefings';
-import { formatShort } from '../lib/briefings';
+import { formatShort, weekdayName } from '../lib/briefings';
 
 interface Props {
   current: BriefingType;
@@ -15,7 +15,7 @@ interface Props {
 const { current, prev, next } = Astro.props;
 ---
 
-<Layout title={`${formatShort(current)} — Morning Brief`} description={current.topStory}>
+<Layout title={`${formatShort(current)} — Morning Brief`} description={current.topStory} day={weekdayName(current)}>
   <Calendar current={current} prev={prev} next={next} />
   <Briefing briefing={current} />
   <BriefingNav prev={prev} next={next} />

@@ -63,3 +63,8 @@ export function formatLong(b: Briefing): string {
 export function formatStrip(b: Briefing): string {
   return `${WEEKDAYS_SHORT[weekdayIndex(b)]}, ${MONTHS_SHORT[Number(b.month) - 1]} ${Number(b.day)}`;
 }
+
+/** 'sunday' … 'saturday' — drives the per-weekday color palette. */
+export function weekdayName(b: Briefing): string {
+  return WEEKDAYS_LONG[weekdayIndex(b)].toLowerCase();
+}

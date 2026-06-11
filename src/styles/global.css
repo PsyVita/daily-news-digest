@@ -10,8 +10,8 @@
   --border: #e2e9ef;
   --accent: #0b6bbd;
   --accent-strong: #0a5a9e;
-  --accent-soft: #e7f1fa;
-  --accent-softer: #f0f6fc;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --accent-softer: color-mix(in srgb, var(--accent) 6%, var(--surface));
   --shadow: 0 8px 30px rgba(16, 42, 67, 0.12);
   color-scheme: light;
 }
@@ -24,11 +24,30 @@
   --border: #243543;
   --accent: #62b2f3;
   --accent-strong: #8cc7f7;
-  --accent-soft: #16293a;
-  --accent-softer: #111f2d;
+  --accent-soft: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  --accent-softer: color-mix(in srgb, var(--accent) 9%, var(--surface));
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
+
+/* ----- Day-of-week palettes (Thai day colors) ------------------------------
+   Each briefing page carries data-day on <html>; the accent hue follows the
+   weekday. Friday is blue — the site default above. All tints and hovers are
+   derived from --accent, so two values per theme are enough per day. */
+
+:root[data-day='sunday'] { --accent: #cf3f3f; --accent-strong: #b02a2a; }
+:root[data-day='monday'] { --accent: #b08200; --accent-strong: #8a6600; }
+:root[data-day='tuesday'] { --accent: #d2488c; --accent-strong: #b23274; }
+:root[data-day='wednesday'] { --accent: #2f9e54; --accent-strong: #1f7f40; }
+:root[data-day='thursday'] { --accent: #df721e; --accent-strong: #b95a0e; }
+:root[data-day='saturday'] { --accent: #7e4fc9; --accent-strong: #6638ab; }
+
+:root[data-theme='dark'][data-day='sunday'] { --accent: #f08484; --accent-strong: #f5a8a8; }
+:root[data-theme='dark'][data-day='monday'] { --accent: #ecc35c; --accent-strong: #f3d68c; }
+:root[data-theme='dark'][data-day='tuesday'] { --accent: #f193c3; --accent-strong: #f6b6d5; }
+:root[data-theme='dark'][data-day='wednesday'] { --accent: #76d49a; --accent-strong: #a0e3bc; }
+:root[data-theme='dark'][data-day='thursday'] { --accent: #f3a467; --accent-strong: #f7c293; }
+:root[data-theme='dark'][data-day='saturday'] { --accent: #b89cf1; --accent-strong: #cebaf6; }
 
 * {
   box-sizing: border-box;
@@ -375,7 +394,7 @@ svg {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-strong);
   border-top: 1px solid var(--border);
   margin: 2.4rem 0 0.9rem;
   padding-top: 1.3rem;
@@ -499,7 +518,7 @@ svg {
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--accent);
+  color: var(--accent-strong);
 }
 
 .briefing-nav-date {

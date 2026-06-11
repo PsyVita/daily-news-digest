@@ -4,13 +4,15 @@ import '../styles/global.css';
 interface Props {
   title: string;
   description?: string;
+  /** Weekday of the displayed briefing ('sunday'…'saturday') — selects the day's color palette. */
+  day?: string;
 }
 
-const { title, description = 'A daily briefing on tech, AI, cybersecurity, and law.' } = Astro.props;
+const { title, description = 'A daily briefing on tech, AI, cybersecurity, and law.', day } = Astro.props;
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-day={day}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />

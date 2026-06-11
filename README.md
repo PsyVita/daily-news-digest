@@ -4,7 +4,7 @@ A static, mobile-first daily briefing site (tech · AI · cybersecurity · law) 
 
 ## How daily updates work
 
-An automated agent (Claude, running in Cowork) researches the news every morning and commits one file via the GitHub API:
+An automated agent (Claude, running in Cowork) researches the news every morning at **4:00 AM** (the schedule lives on the Cowork side, not in this repo) and commits one file via the GitHub API:
 
 ```
 briefings/YYYY/MM/DD.md
@@ -73,6 +73,7 @@ The site is tolerant of imperfect content:
 - **Calendar navigator** ([src/components/Calendar.astro](src/components/Calendar.astro)) is the only JavaScript on the page — a small vanilla island. It lazy-loads `/dates.json` (a build-time generated index of `{date, topStory, funFact}`) on first open, never in the critical path.
 - **PWA**: web manifest + icons; installable from a phone browser. No service worker, so deployed content is never stale.
 - Dark mode follows `prefers-color-scheme` with a manual toggle persisted in `localStorage`.
+- **Day-of-week palettes** (Thai day colors): each briefing page's accent color follows its weekday — red Sunday, yellow Monday, pink Tuesday, green Wednesday, orange Thursday, blue Friday, purple Saturday. Defined in [src/styles/global.css](src/styles/global.css) via `data-day` on `<html>`; tints are derived with `color-mix`, so each day only overrides two hue tokens per theme.
 
 ## Local development
 
