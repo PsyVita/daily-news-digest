@@ -1,0 +1,17 @@
+---
+import { render } from 'astro:content';
+import type { Briefing } from '../lib/briefings';
+import { formatLong } from '../lib/briefings';
+
+interface Props {
+  briefing: Briefing;
+}
+
+const { briefing } = Astro.props;
+const { Content } = await render(briefing.entry);
+---
+
+<article class="briefing">
+  <h1 class="briefing-date">{formatLong(briefing)}</h1>
+  <Content />
+</article>

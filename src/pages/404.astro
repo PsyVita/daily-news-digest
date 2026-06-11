@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Calendar from '../components/Calendar.astro';
+import { getBriefings, formatStrip } from '../lib/briefings';
+
+const briefings = await getBriefings();
+const latest = briefings[briefings.length - 1];
+const prev = briefings.length > 1 ? briefings[briefings.length - 2] : null;
+---
+
+<Layout title="Page not found — Morning Brief">
+  {latest && <Calendar current={latest} prev={prev} next={null} />}
+  <div class="not-found">
+    <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true" class="not-found-fish">
+      <ellipse cx="26" cy="32" rx="18" ry="11" fill="currentColor" />
+      <path d="M42 32 L58 22 L58 42 Z" fill="currentColor" />
+      <circle cx="16" cy="29" r="2.5" fill="var(--bg)" />
+    </svg>
+    <h1>Nothing surfaced here</h1>
+    <p>This page doesn't exist — maybe there was no briefing that day.</p>
+    {
+      latest && (
+        <p>
+          <a class="not-found-link" href="/">Read the latest briefing ({formatStrip(latest)}) →</a>
+        </p>
+      )
+    }
+    <p class="not-found-hint">Or pick a day from the calendar above.</p>
+  </div>
+</Layout>

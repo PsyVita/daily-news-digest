@@ -1,0 +1,36 @@
+---
+import type { Briefing } from '../lib/briefings';
+import { formatStrip } from '../lib/briefings';
+
+interface Props {
+  prev: Briefing | null;
+  next: Briefing | null;
+}
+
+const { prev, next } = Astro.props;
+---
+
+{
+  (prev || next) && (
+    <nav class="briefing-nav" aria-label="Adjacent briefings">
+      {prev ? (
+        <a class="briefing-nav-link prev" href={prev.url}>
+          <span class="briefing-nav-label">‹ Previous</span>
+          <span class="briefing-nav-date">{formatStrip(prev)}</span>
+          <span class="briefing-nav-teaser">{prev.topStory}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <a class="briefing-nav-link next" href={next.url}>
+          <span class="briefing-nav-label">Next ›</span>
+          <span class="briefing-nav-date">{formatStrip(next)}</span>
+          <span class="briefing-nav-teaser">{next.topStory}</span>
+        </a>
+      ) : (
+        <span />
+      )}
+    </nav>
+  )
+}

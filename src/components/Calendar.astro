@@ -1,0 +1,363 @@
+---
+import type { Briefing } from '../lib/briefings';
+import { formatStrip } from '../lib/briefings';
+
+interface Props {
+  current: Briefing;
+  prev: Briefing | null;
+  next: Briefing | null;
+}
+
+const { current, prev, next } = Astro.props;
+---
+
+<div class="calendar" id="calendar" data-selected={current.dateKey}>
+  <div class="date-strip">
+    {
+      prev ? (
+        <a class="strip-arrow" href={prev.url} aria-label={`Previous briefing, ${formatStrip(prev)}`}>‹</a>
+      ) : (
+        <span class="strip-arrow is-disabled" aria-hidden="true">‹</span>
+      )
+    }
+    <button class="strip-date" id="cal-toggle" type="button" aria-expanded="false" aria-controls="cal-panel">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <rect x="3.5" y="5" width="17" height="16" rx="2.5" />
+        <path d="M3.5 10h17M8 2.5V6M16 2.5V6" />
+      </svg>
+      <span>{formatStrip(current)}</span>
+    </button>
+    {
+      next ? (
+        <a class="strip-arrow" href={next.url} aria-label={`Next briefing, ${formatStrip(next)}`}>›</a>
+      ) : (
+        <span class="strip-arrow is-disabled" aria-hidden="true">›</span>
+      )
+    }
+  </div>
+
+  <div class="cal-backdrop" id="cal-backdrop" hidden></div>
+  <section class="cal-panel" id="cal-panel" aria-label="Briefing calendar" hidden>
+    <div class="cal-head">
+      <button class="cal-nav" id="cal-prev-month" type="button" aria-label="Previous month">‹</button>
+      <div class="cal-selects">
+        <select id="cal-month" aria-label="Jump to month"></select>
+        <select id="cal-year" aria-label="Jump to year"></select>
+      </div>
+      <button class="cal-nav" id="cal-next-month" type="button" aria-label="Next month">›</button>
+      <button class="cal-close" id="cal-close" type="button" aria-label="Close calendar">×</button>
+    </div>
+    <div class="cal-weekdays" aria-hidden="true">
+      <span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span>
+    </div>
+    <div class="cal-grid" id="cal-grid" role="grid" aria-label="Days of the month"></div>
+    <div class="cal-tooltip" id="cal-tooltip" role="tooltip" hidden></div>
+  </section>
+</div>
+
+<script>
+  const root = document.getElementById('calendar');
+  if (root) initCalendar(root);
+
+  function initCalendar(root: HTMLElement) {
+    const toggle = root.querySelector('#cal-toggle') as HTMLButtonElement;
+    const panel = root.querySelector('#cal-panel') as HTMLElement;
+    const backdrop = root.querySelector('#cal-backdrop') as HTMLElement;
+    const grid = root.querySelector('#cal-grid') as HTMLElement;
+    const monthSel = root.querySelector('#cal-month') as HTMLSelectElement;
+    const yearSel = root.querySelector('#cal-year') as HTMLSelectElement;
+    const tooltip = root.querySelector('#cal-tooltip') as HTMLElement;
+    const closeBtn = root.querySelector('#cal-close') as HTMLButtonElement;
+
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const selected = root.dataset.selected || '';
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+
+    /** date string -> topStory; loaded lazily on first open */
+    let briefings: Map<string, string> | null = null;
+    let loading: Promise<void> | null = null;
+    let viewYear = 0;
+    let viewMonth = 0; // 1-12
+    let minKey = selected || todayKey;
+    let maxKey = selected || todayKey;
+    let open = false;
+    let longPressed = false;
+
+    function pad(n: number): string {
+      return String(n).padStart(2, '0');
+    }
+
+    function loadDates(): Promise<void> {
+      if (!loading) {
+        loading = fetch('/dates.json')
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => [])
+          .then((list: { date: string; topStory: string }[]) => {
+            briefings = new Map(list.map((d) => [d.date, d.topStory]));
+            if (list.length) {
+              minKey = list[0].date;
+              maxKey = list[list.length - 1].date;
+            }
+            buildSelects();
+          });
+      }
+      return loading;
+    }
+
+    function buildSelects() {
+      const minYear = Number(minKey.slice(0, 4));
+      const maxYear = Math.max(Number(maxKey.slice(0, 4)), now.getFullYear());
+      monthSel.innerHTML = MONTHS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+      let years = '';
+      for (let y = minYear; y <= maxYear; y++) years += `<option value="${y}">${y}</option>`;
+      yearSel.innerHTML = years;
+      monthSel.value = String(viewMonth);
+      yearSel.value = String(viewYear);
+    }
+
+    function render() {
+      monthSel.value = String(viewMonth);
+      yearSel.value = String(viewYear);
+      hideTooltip();
+      grid.innerHTML = '';
+
+      const firstWeekday = (new Date(Date.UTC(viewYear, viewMonth - 1, 1)).getUTCDay() + 6) % 7; // Monday = 0
+      const daysInMonth = new Date(Date.UTC(viewYear, viewMonth, 0)).getUTCDate();
+
+      let row = newRow();
+      for (let i = 0; i < firstWeekday; i++) row.appendChild(blankCell());
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const key = `${viewYear}-${pad(viewMonth)}-${pad(d)}`;
+        const story = briefings?.get(key);
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.setAttribute('role', 'gridcell');
+        cell.className = 'cal-day';
+        cell.textContent = String(d);
+        cell.dataset.date = key;
+        cell.tabIndex = -1;
+        if (story !== undefined) {
+          cell.classList.add('has-briefing');
+          cell.setAttribute('aria-label', `${key}: ${story}`);
+        } else {
+          cell.setAttribute('aria-disabled', 'true');
+          cell.setAttribute('aria-label', key);
+        }
+        if (key === todayKey) cell.classList.add('is-today');
+        if (key === selected) {
+          cell.classList.add('is-selected');
+          cell.setAttribute('aria-selected', 'true');
+        }
+        if (row.children.length === 7) {
+          grid.appendChild(row);
+          row = newRow();
+        }
+        row.appendChild(cell);
+      }
+      while (row.children.length < 7) row.appendChild(blankCell());
+      grid.appendChild(row);
+
+      // Roving tabindex: selected day, else first briefing day, else day 1.
+      const focusable =
+        grid.querySelector<HTMLElement>('.is-selected') ||
+        grid.querySelector<HTMLElement>('.has-briefing') ||
+        grid.querySelector<HTMLElement>('.cal-day');
+      if (focusable) focusable.tabIndex = 0;
+    }
+
+    function newRow(): HTMLElement {
+      const row = document.createElement('div');
+      row.setAttribute('role', 'row');
+      row.className = 'cal-row';
+      return row;
+    }
+
+    function blankCell(): HTMLElement {
+      const span = document.createElement('span');
+      span.setAttribute('role', 'gridcell');
+      span.className = 'cal-blank';
+      span.setAttribute('aria-hidden', 'true');
+      return span;
+    }
+
+    function setView(year: number, month: number, focusDay?: number) {
+      const minYear = Number(minKey.slice(0, 4));
+      const maxYear = Math.max(Number(maxKey.slice(0, 4)), now.getFullYear());
+      if (year < minYear) { year = minYear; month = Math.max(month, 1); }
+      if (year > maxYear) { year = maxYear; month = Math.min(month, 12); }
+      if (month < 1) { month = 12; year--; }
+      if (month > 12) { month = 1; year++; }
+      if (year < minYear || year > maxYear) return;
+      viewYear = year;
+      viewMonth = month;
+      render();
+      if (focusDay !== undefined) focusCell(focusDay);
+    }
+
+    function focusCell(day: number) {
+      const cells = Array.from(grid.querySelectorAll<HTMLElement>('.cal-day'));
+      const target = cells[Math.min(Math.max(day, 1), cells.length) - 1];
+      if (!target) return;
+      cells.forEach((c) => (c.tabIndex = -1));
+      target.tabIndex = 0;
+      target.focus();
+    }
+
+    function showTooltip(cell: HTMLElement) {
+      const story = briefings?.get(cell.dataset.date || '');
+      if (!story) return;
+      tooltip.textContent = story;
+      tooltip.hidden = false;
+      const panelBox = panel.getBoundingClientRect();
+      const cellBox = cell.getBoundingClientRect();
+      const left = Math.min(
+        Math.max(cellBox.left - panelBox.left + cellBox.width / 2 - tooltip.offsetWidth / 2, 8),
+        panelBox.width - tooltip.offsetWidth - 8
+      );
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${cellBox.top - panelBox.top - tooltip.offsetHeight - 6}px`;
+    }
+
+    function hideTooltip() {
+      tooltip.hidden = true;
+    }
+
+    function openPanel(focusGrid: boolean) {
+      open = true;
+      toggle.setAttribute('aria-expanded', 'true');
+      panel.hidden = false;
+      if (isSheet()) backdrop.hidden = false;
+      loadDates().then(() => {
+        const base = selected || todayKey;
+        if (!viewYear) {
+          viewYear = Number(base.slice(0, 4));
+          viewMonth = Number(base.slice(5, 7));
+        }
+        buildSelects();
+        render();
+        if (focusGrid) {
+          const cell = grid.querySelector<HTMLElement>('[tabindex="0"]');
+          cell?.focus();
+        }
+      });
+      try { localStorage.setItem('calOpen', '1'); } catch {}
+    }
+
+    function closePanel(refocus: boolean) {
+      open = false;
+      toggle.setAttribute('aria-expanded', 'false');
+      panel.hidden = true;
+      backdrop.hidden = true;
+      hideTooltip();
+      if (refocus) toggle.focus();
+      try { localStorage.setItem('calOpen', '0'); } catch {}
+    }
+
+    function isSheet(): boolean {
+      return matchMedia('(max-width: 767px)').matches;
+    }
+
+    toggle.addEventListener('click', () => (open ? closePanel(false) : openPanel(false)));
+    closeBtn.addEventListener('click', () => closePanel(true));
+    backdrop.addEventListener('click', () => closePanel(false));
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && open) closePanel(true);
+    });
+
+    root.querySelector('#cal-prev-month')?.addEventListener('click', () => setView(viewYear, viewMonth - 1));
+    root.querySelector('#cal-next-month')?.addEventListener('click', () => setView(viewYear, viewMonth + 1));
+    monthSel.addEventListener('change', () => setView(viewYear, Number(monthSel.value)));
+    yearSel.addEventListener('change', () => setView(Number(yearSel.value), viewMonth));
+
+    grid.addEventListener('click', (e) => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>('.cal-day');
+      if (!cell) return;
+      if (longPressed) {
+        longPressed = false;
+        return;
+      }
+      const key = cell.dataset.date || '';
+      if (briefings?.has(key)) location.href = `/${key.replaceAll('-', '/')}`;
+    });
+
+    // Hover tooltip (desktop)
+    grid.addEventListener('mouseover', (e) => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>('.cal-day.has-briefing');
+      if (cell) showTooltip(cell);
+    });
+    grid.addEventListener('mouseout', hideTooltip);
+    grid.addEventListener('focusin', (e) => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>('.cal-day.has-briefing');
+      if (cell) showTooltip(cell);
+    });
+    grid.addEventListener('focusout', hideTooltip);
+
+    // Long-press tooltip (touch)
+    let pressTimer = 0;
+    grid.addEventListener(
+      'touchstart',
+      (e) => {
+        const cell = (e.target as HTMLElement).closest<HTMLElement>('.cal-day.has-briefing');
+        if (!cell) return;
+        pressTimer = window.setTimeout(() => {
+          longPressed = true;
+          showTooltip(cell);
+        }, 450);
+      },
+      { passive: true }
+    );
+    const cancelPress = () => {
+      clearTimeout(pressTimer);
+      if (longPressed) setTimeout(hideTooltip, 1500);
+    };
+    grid.addEventListener('touchend', cancelPress);
+    grid.addEventListener('touchmove', cancelPress, { passive: true });
+    grid.addEventListener('contextmenu', (e) => {
+      if ((e.target as HTMLElement).closest('.cal-day')) e.preventDefault();
+    });
+
+    // Keyboard navigation
+    grid.addEventListener('keydown', (e) => {
+      const cell = (e.target as HTMLElement).closest<HTMLElement>('.cal-day');
+      if (!cell) return;
+      const day = Number(cell.textContent);
+      const daysInMonth = grid.querySelectorAll('.cal-day').length;
+      const move = (delta: number) => {
+        e.preventDefault();
+        const target = day + delta;
+        if (target < 1) {
+          const daysInPrev = new Date(Date.UTC(viewYear, viewMonth - 1, 0)).getUTCDate();
+          setView(viewYear, viewMonth - 1, daysInPrev + target);
+        } else if (target > daysInMonth) {
+          setView(viewYear, viewMonth + 1, target - daysInMonth);
+        } else {
+          focusCell(target);
+        }
+      };
+      switch (e.key) {
+        case 'ArrowLeft': move(-1); break;
+        case 'ArrowRight': move(1); break;
+        case 'ArrowUp': move(-7); break;
+        case 'ArrowDown': move(7); break;
+        case 'Home': e.preventDefault(); focusCell(1); break;
+        case 'End': e.preventDefault(); focusCell(daysInMonth); break;
+        case 'PageUp': e.preventDefault(); setView(viewYear, viewMonth - 1, 1); break;
+        case 'PageDown': e.preventDefault(); setView(viewYear, viewMonth + 1, 1); break;
+        case 'Enter':
+        case ' ': {
+          e.preventDefault();
+          const key = cell.dataset.date || '';
+          if (briefings?.has(key)) location.href = `/${key.replaceAll('-', '/')}`;
+          break;
+        }
+      }
+    });
+
+    // Desktop default: expanded view (remember the user's last choice).
+    let stored: string | null = null;
+    try { stored = localStorage.getItem('calOpen'); } catch {}
+    if (!isSheet() && stored !== '0') openPanel(false);
+  }
+</script>

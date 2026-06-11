@@ -1,0 +1,20 @@
+---
+import BriefingPage from '../../../layouts/BriefingPage.astro';
+import { getBriefings } from '../../../lib/briefings';
+
+export async function getStaticPaths() {
+  const briefings = await getBriefings();
+  return briefings.map((briefing, i) => ({
+    params: { year: briefing.year, month: briefing.month, day: briefing.day },
+    props: {
+      current: briefing,
+      prev: briefings[i - 1] ?? null,
+      next: briefings[i + 1] ?? null,
+    },
+  }));
+}
+
+const { current, prev, next } = Astro.props;
+---
+
+<BriefingPage current={current} prev={prev} next={next} />

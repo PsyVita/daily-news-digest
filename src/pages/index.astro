@@ -1,0 +1,25 @@
+---
+import BriefingPage from '../layouts/BriefingPage.astro';
+import { getBriefings } from '../lib/briefings';
+
+// `/` renders the most recent briefing inline — no redirect flash.
+const briefings = await getBriefings();
+const current = briefings[briefings.length - 1];
+const prev = briefings.length > 1 ? briefings[briefings.length - 2] : null;
+---
+
+{
+  current ? (
+    <BriefingPage current={current} prev={prev} next={null} />
+  ) : (
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <title>Morning Brief</title>
+      </head>
+      <body>
+        <p>No briefings yet. The first one will appear here automatically.</p>
+      </body>
+    </html>
+  )
+}
